@@ -1,9 +1,23 @@
--- ------------------------------------------------------ --
--- Copyright © 2014 AlephCloud Systems, Inc.
--- ------------------------------------------------------ --
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- aws-kinesis.cabal
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
 Name: aws-kinesis
-Version: 0.1.1
+Version: 0.1.5
 Synopsis: Bindings for Amazon Kinesis
 description:
     Bindings for <http://aws.amazon.com/kinesis/ Amazon Kinesis>
@@ -17,11 +31,11 @@ description:
 
 Homepage: https://github.com/alephcloud/hs-aws-kinesis
 Bug-reports: https://github.com/alephcloud/hs-aws-kinesis/issues
-License: MIT
+License: Apache-2.0
 License-file: LICENSE
-Author: Lars Kuhtz <lars@alephcloud.com>
-Maintainer: Lars Kuhtz <lars@alephcloud.com>
-Copyright: Copyright (c) 2014 AlephCloud, Inc.
+Author: Lars Kuhtz <lkuhtz@pivotmail.com>
+Maintainer: Lars Kuhtz <lkuhtz@pivotmail.com>
+Copyright: Copyright (c) 2013-2015 PivotCloud, Inc.
 Category: Network, Web, AWS, Cloud, Distributed Computing
 Build-type: Simple
 
@@ -41,7 +55,7 @@ source-repository head
 source-repository this
     type: git
     location: https://github.com/alephcloud/hs-aws-kinesis.git
-    tag: 0.1.1
+    tag: 0.1.5
 
 Library
     default-language: Haskell2010
@@ -54,6 +68,7 @@ Library
         Aws.Kinesis.Commands.CreateStream
         Aws.Kinesis.Commands.DeleteStream
         Aws.Kinesis.Commands.PutRecord
+        Aws.Kinesis.Commands.PutRecords
         Aws.Kinesis.Commands.GetRecords
         Aws.Kinesis.Commands.GetShardIterator
         Aws.Kinesis.Commands.ListStreams
@@ -65,13 +80,14 @@ Library
         QuickCheck >= 2.7,
         aeson >= 0.7,
         aws >= 0.9,
-        aws-general >= 0.2 && < 0.3,
+        aws-general >= 0.2.2,
         base == 4.*,
         base64-bytestring >= 1.0,
         blaze-builder >= 0.3,
         bytestring >= 0.10,
-        conduit >= 1.1,
+        conduit >= 1.2.1,
         conduit-extra >= 1.1,
+        deepseq >= 1.3,
         http-conduit >= 2.1,
         http-types >= 0.8,
         parsers >= 0.11,
@@ -109,8 +125,4 @@ test-suite kinesis-tests
         transformers >= 0.3
 
     ghc-options: -Wall -threaded
-
-
-
-
 

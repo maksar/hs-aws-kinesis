@@ -1,14 +1,25 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- Aws.Kinesis.Commands.PutRecord
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
 -- |
 -- Module: Aws.Kinesis.Commands.PutRecord
--- Copyright: Copyright © 2014 AlephCloud Systems, Inc.
--- License: MIT
+-- Copyright: Copyright (c) 2013-2015 PivotCloud, Inc.
+-- license: Apache License, Version 2.0
 -- Maintainer: Lars Kuhtz <lars@alephcloud.com>
 -- Stability: experimental
 --
@@ -50,18 +61,34 @@
 -- added to an Amazon Kinesis stream.
 --
 -- <http://docs.aws.amazon.com/kinesis/2013-12-02/APIReference/API_PutRecord.html>
---
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Aws.Kinesis.Commands.PutRecord
 ( PutRecord(..)
 , PutRecordResponse(..)
 , PutRecordExceptions(..)
 ) where
 
+#ifndef MIN_VERSION_base
+#define MIN_VERSION_base(x,y,z) 1
+#endif
+
 import Aws.Core
 import Aws.Kinesis.Types
 import Aws.Kinesis.Core
 
+#if ! MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
+import Control.DeepSeq
 
 import Data.Aeson
 import Data.ByteString as B
@@ -69,6 +96,8 @@ import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.Text.Encoding as T
 import Data.Typeable
+
+import GHC.Generics
 
 putRecordAction :: KinesisAction
 putRecordAction = KinesisPutRecord
@@ -103,7 +132,9 @@ data PutRecord = PutRecord
     , putRecordStreamName :: !StreamName
     -- ^ The name of the stream to put the data record into.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData PutRecord
 
 instance ToJSON PutRecord where
     toJSON PutRecord{..} = object
@@ -124,7 +155,9 @@ data PutRecordResponse = PutRecordResponse
     , putRecordResShardId :: !ShardId
     -- ^ The shard ID of the shard where the data record was placed.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData PutRecordResponse
 
 instance FromJSON PutRecordResponse where
     parseJSON = withObject "PutRecordResponse" $ \o -> PutRecordResponse
@@ -133,7 +166,11 @@ instance FromJSON PutRecordResponse where
 
 instance ResponseConsumer r PutRecordResponse where
     type ResponseMetadata PutRecordResponse = KinesisMetadata
+#if MIN_VERSION_aws(0,15,0)
+    responseConsumer _ _ = kinesisResponseConsumer
+#else
     responseConsumer _ = kinesisResponseConsumer
+#endif
 
 instance SignQuery PutRecord where
     type ServiceConfiguration PutRecord = KinesisConfiguration
@@ -164,5 +201,7 @@ data PutRecordExceptions
     | PutRecordResourceNotFoundException
     -- ^ /Code 400/
 
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
+
+instance NFData PutRecordExceptions
 

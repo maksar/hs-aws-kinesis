@@ -1,24 +1,37 @@
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings  #-}
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- Aws.Kinesis.Core
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
--- |
--- Module: Aws.Kinesis.Core
--- Copyright: Copyright © 2014 AlephCloud Systems, Inc.
--- License: MIT
--- Maintainer: Lars Kuhtz <lars@alephcloud.com>
--- Stability: experimental
---
--- /API Version: 2013-12-02/
---
--- <http://docs.aws.amazon.com/kinesis/2013-12-02/APIReference>
---
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+
 module Aws.Kinesis.Core
 (
   KinesisVersion(..)
 
 -- * Kinesis Client Configuration
 , KinesisConfiguration(..)
+, defaultKinesisConfiguration
 
 -- * Kinesis Client Metadata
 , KinesisMetadata(..)
@@ -56,36 +69,52 @@ import           Aws.SignatureV4
 
 import qualified Blaze.ByteString.Builder     as BB
 
-import           Control.Applicative
-import           Control.Exception
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource (throwM)
+import Control.Applicative
+import Control.DeepSeq
+import Control.Exception
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Resource (throwM)
 
-import           Data.Aeson
-import qualified Data.ByteString              as B
-import qualified Data.ByteString.Char8        as B8
-import qualified Data.ByteString.Lazy         as LB
-import           Data.Conduit                 (($$+-))
-import           Data.Conduit.Binary          (sinkLbs)
-import           Data.IORef
-import           Data.Maybe
-import           Data.Monoid
-import           Data.String
-import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T
-import           Data.Time.Clock
-import           Data.Typeable
+import Data.Aeson
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as LB
+import qualified Data.ByteString.Char8 as B8
+import Data.Conduit (runConduit, (.|))
+import Data.Conduit.Binary (sinkLbs)
+import Data.IORef
+import Data.Maybe
+import Data.Monoid as Monoid
+import Data.Semigroup as Semigroup
+import Data.String
+import Data.Time.Clock
+import Data.Typeable
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 
-import qualified Network.HTTP.Conduit         as HTTP
-import qualified Network.HTTP.Types           as HTTP
+import GHC.Generics
+
+import qualified Network.HTTP.Types as HTTP
+import qualified Network.HTTP.Conduit as HTTP
 
 import qualified Test.QuickCheck              as Q
 
 import qualified Text.Parser.Char             as P
 import           Text.Parser.Combinators      ((<?>))
 
+-- -------------------------------------------------------------------------- --
+-- Orphans
+
+deriving instance Generic HTTP.Status
+instance NFData HTTP.Status
+
+-- -------------------------------------------------------------------------- --
+-- Kinesis Version
+
 data KinesisVersion
     = KinesisVersion_2013_12_02
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData KinesisVersion
 
 kinesisTargetVersion :: IsString a => a
 kinesisTargetVersion = "Kinesis_20131202"
@@ -102,8 +131,11 @@ data KinesisAction
     | KinesisListStreams
     | KinesisMergeShards
     | KinesisPutRecord
+    | KinesisPutRecords
     | KinesisSplitShard
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
+
+instance NFData KinesisAction
 
 kinesisActionToText :: IsString a => KinesisAction -> a
 kinesisActionToText KinesisCreateStream = "CreateStream"
@@ -114,6 +146,7 @@ kinesisActionToText KinesisGetShardIterator = "GetShardIterator"
 kinesisActionToText KinesisListStreams = "ListStreams"
 kinesisActionToText KinesisMergeShards = "MergeShards"
 kinesisActionToText KinesisPutRecord = "PutRecord"
+kinesisActionToText KinesisPutRecords = "PutRecords"
 kinesisActionToText KinesisSplitShard = "SplitShard"
 
 parseKinesisAction :: P.CharParsing m => m KinesisAction
@@ -126,6 +159,7 @@ parseKinesisAction =
     <|> KinesisListStreams <$ P.text "ListStreams"
     <|> KinesisMergeShards <$ P.text "MergeShards"
     <|> KinesisPutRecord <$ P.text "PutRecord"
+    <|> KinesisPutRecords <$ P.text "PutRecords"
     <|> KinesisSplitShard <$ P.text "SplitShard"
     <?> "KinesisAction"
 
@@ -153,6 +187,7 @@ kinesisServiceEndpoint ApSoutheast2 = "kinesis.ap-southeast-2.amazonaws.com"
 kinesisServiceEndpoint EuWest1 = "kinesis.eu-west-1.amazonaws.com"
 kinesisServiceEndpoint UsEast1 = "kinesis.us-east-1.amazonaws.com"
 kinesisServiceEndpoint UsWest2 = "kinesis.us-west-2.amazonaws.com"
+kinesisServiceEndpoint (CustomEndpoint e _) = T.encodeUtf8 e
 kinesisServiceEndpoint r = error $ "Aws.Kinesis.Core.kinesisServiceEndpoint: unsupported region " <> show r -- FIXME
 
 -- -------------------------------------------------------------------------- --
@@ -162,24 +197,38 @@ data KinesisMetadata = KinesisMetadata
     { kinesisMAmzId2    :: Maybe T.Text
     , kinesisMRequestId :: Maybe T.Text
     }
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance NFData KinesisMetadata
 
 instance Loggable KinesisMetadata where
     toLogText (KinesisMetadata rid id2) =
         "Kinesis: request ID=" <> fromMaybe "<none>" rid
         <> ", x-amz-id-2=" <> fromMaybe "<none>" id2
 
-instance Monoid KinesisMetadata where
+instance Semigroup.Semigroup KinesisMetadata where
+    KinesisMetadata id1 r1 <> KinesisMetadata id2 r2 = KinesisMetadata (id1 <|> id2) (r1 <|> r2)
+
+instance Monoid.Monoid KinesisMetadata where
     mempty = KinesisMetadata Nothing Nothing
-    KinesisMetadata id1 r1 `mappend` KinesisMetadata id2 r2 = KinesisMetadata (id1 <|> id2) (r1 <|> r2)
+    mappend = (<>)
 
 -- -------------------------------------------------------------------------- --
 -- Kinesis Configuration
 
 data KinesisConfiguration qt = KinesisConfiguration
     { kinesisConfRegion :: Region
+    , kinesisConfProtocol :: Protocol
     }
-    deriving (Show)
+    deriving (Show, Typeable)
+
+defaultKinesisConfiguration
+    :: Region
+    -> KinesisConfiguration qt
+defaultKinesisConfiguration r = KinesisConfiguration
+    { kinesisConfRegion = r
+    , kinesisConfProtocol = HTTPS
+    }
 
 -- -------------------------------------------------------------------------- --
 -- Kinesis Query
@@ -188,7 +237,9 @@ data KinesisQuery = KinesisQuery
     { kinesisQueryAction :: !KinesisAction
     , kinesisQueryBody   :: !(Maybe B.ByteString)
     }
-    deriving (Show, Eq)
+    deriving (Show, Eq, Typeable, Generic)
+
+instance NFData KinesisQuery
 
 -- | Creates a signed query.
 --
@@ -198,7 +249,7 @@ data KinesisQuery = KinesisQuery
 kinesisSignQuery :: KinesisQuery -> KinesisConfiguration qt -> SignatureData -> SignedQuery
 kinesisSignQuery query conf sigData = SignedQuery
     { sqMethod = Post
-    , sqProtocol = HTTPS
+    , sqProtocol = kinesisConfProtocol conf
     , sqHost = host
     , sqPort = port
     , sqPath = BB.toByteString $ HTTP.encodePathSegments path
@@ -217,7 +268,9 @@ kinesisSignQuery query conf sigData = SignedQuery
     reqQuery = []
     host = kinesisServiceEndpoint $ kinesisConfRegion conf
     headers = [("host", host), kinesisTargetHeader (kinesisQueryAction query)]
-    port = 443
+    port = case kinesisConfRegion conf of
+               CustomEndpoint _ p -> p
+               _ -> 443
     contentType = Just "application/x-amz-json-1.1"
     body = kinesisQueryBody query
 
@@ -237,7 +290,7 @@ kinesisSignQuery query conf sigData = SignedQuery
 #if MIN_VERSION_aws(0,9,2)
     cred2cred (Credentials a b c d) = SignatureV4Credentials a b c d
 #else
-    cred2cred (Credentials a b c) = SignatureV4Credentials a b c
+    cred2cred (Credentials a b c) = SignatureV4Credentials a b c Nothing
 #endif
 
 -- -------------------------------------------------------------------------- --
@@ -249,7 +302,7 @@ jsonResponseConsumer
     :: FromJSON a
     => HTTPResponseConsumer a
 jsonResponseConsumer res = do
-    doc <- HTTP.responseBody res $$+- sinkLbs
+    doc <- runConduit (HTTP.responseBody res .| sinkLbs)
     case eitherDecode (if doc == mempty then "{}" else doc) of
         Left err -> throwM . KinesisResponseJsonError $ T.pack err
         Right v -> return v
@@ -278,7 +331,7 @@ kinesisResponseConsumer metadata resp = do
 --
 errorResponseConsumer :: HTTPResponseConsumer a
 errorResponseConsumer resp = do
-    doc <- HTTP.responseBody resp $$+- sinkLbs
+    doc <- runConduit (HTTP.responseBody resp .| sinkLbs)
     if HTTP.responseStatus resp == HTTP.status400
         then kinesisError doc
         else throwM KinesisOtherError
@@ -288,9 +341,7 @@ errorResponseConsumer resp = do
   where
     kinesisError doc = case eitherDecode doc of
         Left e -> throwM . KinesisResponseJsonError $ T.pack e
-        Right a -> do
-            liftIO $ print doc
-            throwM (a :: KinesisErrorResponse)
+        Right a -> throwM (a :: KinesisErrorResponse)
 
 -- -------------------------------------------------------------------------- --
 -- Kinesis Errors
@@ -300,7 +351,9 @@ errorResponseConsumer resp = do
 data KinesisError a
     = KinesisErrorCommon KinesisCommonError
     | KinesisErrorCommand a
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData a => NFData (KinesisError a)
 
 -- | All Kinesis exceptions have HTTP status code 400 and include
 -- a JSON body with an exception type property and a short message.
@@ -315,16 +368,17 @@ data KinesisErrorResponse
         { kinesisOtherErrorStatus  :: !HTTP.Status
         , kinesisOtherErrorMessage :: !T.Text
         }
-    deriving (Show, Eq, Ord, Typeable)
+    deriving (Show, Eq, Ord, Typeable, Generic)
 
 instance Exception KinesisErrorResponse
+instance NFData KinesisErrorResponse
 
 -- | This instance captures only the 'KinesisErrorResponse' constructor
 --
 instance FromJSON KinesisErrorResponse where
     parseJSON = withObject "KinesisErrorResponse" $ \o -> KinesisErrorResponse
         <$> o .: "__type"
-        <*> o .:? "message" .!= ""
+        <*> (o .: "message" <|> o .: "Message" <|> pure "")
 
 -- | Common Kinesis Errors
 --
@@ -437,7 +491,9 @@ data KinesisCommonError
     -- /Code 400/
     --
     | ErrorValidationError
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
+
+instance NFData KinesisCommonError
 
 -- -------------------------------------------------------------------------- --
 -- Common Parameters
@@ -507,4 +563,7 @@ data KinesisCommonParameters = KinesisCommonParameters
     , kinesisVersion          :: KinesisVersion
     -- ^ The API version that the request is written for.
     }
+    deriving (Show, Eq, Read, Ord, Typeable, Generic)
+
+instance NFData KinesisCommonParameters
 

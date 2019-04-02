@@ -1,14 +1,25 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- Aws.Kinesis.Commands.ListStreams
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
 -- |
 -- Module: Aws.Kinesis.Commands.ListStreams
--- Copyright: Copyright © 2014 AlephCloud Systems, Inc.
--- License: MIT
+-- Copyright: Copyright (c) 2013-2015 PivotCloud, Inc.
+-- license: Apache License, Version 2.0
 -- Maintainer: Lars Kuhtz <lars@alephcloud.com>
 -- Stability: experimental
 --
@@ -35,23 +46,41 @@
 -- ListStreams has a limit of 5 transactions per second per account.
 --
 -- <http://docs.aws.amazon.com/kinesis/2013-12-02/APIReference/API_ListStreams.html>
---
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Aws.Kinesis.Commands.ListStreams
 ( ListStreams(..)
 , ListStreamsResponse(..)
 , ListStreamsExceptions(..)
 ) where
 
+#ifndef MIN_VERSION_base
+#define MIN_VERSION_base(x,y,z) 1
+#endif
+
 import Aws.Core
 import Aws.Kinesis.Types
 import Aws.Kinesis.Core
 
+#if ! MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
+import Control.DeepSeq
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import Data.Maybe
 import Data.Typeable
+
+import GHC.Generics
 
 listStreamsAction :: KinesisAction
 listStreamsAction = KinesisListStreams
@@ -63,7 +92,9 @@ data ListStreams = ListStreams
     , listStreamsLimit :: !(Maybe Int)
     -- ^ The maximum number of streams to list.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData ListStreams
 
 instance ToJSON ListStreams where
     toJSON ListStreams{..} = object
@@ -79,7 +110,9 @@ data ListStreamsResponse = ListStreamsResponse
     -- ^ The names of the streams that are associated with the AWS account
     -- making the ListStreams request.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData ListStreamsResponse
 
 instance FromJSON ListStreamsResponse where
     parseJSON = withObject "ListStreamsResponse" $ \o -> ListStreamsResponse
@@ -88,7 +121,11 @@ instance FromJSON ListStreamsResponse where
 
 instance ResponseConsumer r ListStreamsResponse where
     type ResponseMetadata ListStreamsResponse = KinesisMetadata
+#if MIN_VERSION_aws(0,15,0)
+    responseConsumer _ _ = kinesisResponseConsumer
+#else
     responseConsumer _ = kinesisResponseConsumer
+#endif
 
 instance SignQuery ListStreams where
     type ServiceConfiguration ListStreams = KinesisConfiguration
@@ -140,5 +177,7 @@ data ListStreamsExceptions
     = ListStreamsLimitExceededException
     -- ^ /Code 400/
 
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
+
+instance NFData ListStreamsExceptions
 

@@ -1,14 +1,25 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- Aws.Kinesis.Commands.SplitShard
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
 -- |
--- Module: Aws.Sns.Commands.SplitShard
--- Copyright: Copyright © 2014 AlephCloud Systems, Inc.
--- License: MIT
+-- Module: Aws.Kinesis.Commands.SplitShard
+-- Copyright: Copyright (c) 2013-2015 PivotCloud, Inc.
+-- license: Apache License, Version 2.0
 -- Maintainer: Lars Kuhtz <lars@alephcloud.com>
 -- Stability: experimental
 --
@@ -62,7 +73,16 @@
 -- SplitShard has limit of 5 transactions per second per account.
 --
 -- <http://docs.aws.amazon.com/kinesis/2013-12-02/APIReference/API_SplitShard.html>
---
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Aws.Kinesis.Commands.SplitShard
 ( SplitShard(..)
 , SplitShardResponse(..)
@@ -73,9 +93,13 @@ import Aws.Core
 import Aws.Kinesis.Core
 import Aws.Kinesis.Types
 
+import Control.DeepSeq
+
 import Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import Data.Typeable
+
+import GHC.Generics
 
 splitShardAction :: KinesisAction
 splitShardAction = KinesisSplitShard
@@ -97,7 +121,9 @@ data SplitShard = SplitShard
     , splitShardStreamName :: !StreamName
     -- ^ The name of the stream for the shard split.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData SplitShard
 
 instance ToJSON SplitShard where
     toJSON SplitShard{..} = object
@@ -107,11 +133,17 @@ instance ToJSON SplitShard where
         ]
 
 data SplitShardResponse = SplitShardResponse
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData SplitShardResponse
 
 instance ResponseConsumer r SplitShardResponse where
     type ResponseMetadata SplitShardResponse = KinesisMetadata
+#if MIN_VERSION_aws(0,15,0)
+    responseConsumer _ _ = kinesisResponseConsumer
+#else
     responseConsumer _ = kinesisResponseConsumer
+#endif
 
 instance FromJSON SplitShardResponse where
     parseJSON _ = return SplitShardResponse
@@ -148,5 +180,7 @@ data SplitShardExceptions
     | SplitShardResourceNotFoundException
     -- ^ /Code 400/
 
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
+
+instance NFData SplitShardExceptions
 

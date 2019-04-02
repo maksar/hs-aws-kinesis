@@ -1,14 +1,25 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- Aws.Kinesis.Commands.MergeShards
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
 -- |
 -- Module: Aws.Kinesis.Commands.MergeShards
--- Copyright: Copyright © 2014 AlephCloud Systems, Inc.
--- License: MIT
+-- Copyright: Copyright (c) 2013-2015 PivotCloud, Inc.
+-- license: Apache License, Version 2.0
 -- Maintainer: Lars Kuhtz <lars@alephcloud.com>
 -- Stability: experimental
 --
@@ -54,7 +65,16 @@
 -- MergeShards has limit of 5 transactions per second per account.
 --
 -- <http://docs.aws.amazon.com/kinesis/2013-12-02/APIReference/API_MergeShards.html>
---
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Aws.Kinesis.Commands.MergeShards
 ( MergeShards(..)
 , MergeShardsResponse(..)
@@ -65,9 +85,13 @@ import Aws.Core
 import Aws.Kinesis.Core
 import Aws.Kinesis.Types
 
+import Control.DeepSeq
+
 import Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import Data.Typeable
+
+import GHC.Generics
 
 mergeShardsAction :: KinesisAction
 mergeShardsAction = KinesisMergeShards
@@ -83,7 +107,9 @@ data MergeShards = MergeShards
     , mergeShardsStreamName :: !StreamName
     -- ^ The name of the stream for the merge.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData MergeShards
 
 instance ToJSON MergeShards where
     toJSON MergeShards{..} = object
@@ -93,11 +119,17 @@ instance ToJSON MergeShards where
         ]
 
 data MergeShardsResponse = MergeShardsResponse
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData MergeShardsResponse
 
 instance ResponseConsumer r MergeShardsResponse where
     type ResponseMetadata MergeShardsResponse = KinesisMetadata
+#if MIN_VERSION_aws(0,15,0)
+    responseConsumer _ _ = kinesisResponseConsumer
+#else
     responseConsumer _ = kinesisResponseConsumer
+#endif
 
 instance FromJSON MergeShardsResponse where
     parseJSON _ = return MergeShardsResponse
@@ -134,7 +166,7 @@ data MergeShardsExceptions
     | MergeShardsResourceNotFoundException
     -- ^ /Code 400/
 
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
 
-
+instance NFData MergeShardsExceptions
 

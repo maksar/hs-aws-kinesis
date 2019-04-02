@@ -1,14 +1,25 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+-- Copyright (c) 2013-2015 PivotCloud, Inc.
+--
+-- Aws.Kinesis.Commands.GetRecords
+--
+-- Please feel free to contact us at licensing@pivotmail.com with any
+-- contributions, additions, or other feedback; we would love to hear from
+-- you.
+--
+-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+-- not use this file except in compliance with the License. You may obtain a
+-- copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+-- WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+-- License for the specific language governing permissions and limitations
+-- under the License.
 
 -- |
 -- Module: Aws.Kinesis.Commands.GetRecords
--- Copyright: Copyright © 2014 AlephCloud Systems, Inc.
--- License: MIT
+-- Copyright: Copyright (c) 2013-2015 PivotCloud, Inc.
+-- license: Apache License, Version 2.0
 -- Maintainer: Lars Kuhtz <lars@alephcloud.com>
 -- Stability: experimental
 --
@@ -49,22 +60,40 @@
 -- ProvisionedThroughputExceededException.
 --
 -- <http://docs.aws.amazon.com/kinesis/2013-12-02/APIReference/API_GetRecords.html>
---
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Aws.Kinesis.Commands.GetRecords
 ( GetRecords(..)
 , GetRecordsResponse(..)
 , GetRecordsExceptions(..)
 ) where
 
+#ifndef MIN_VERSION_base
+#define MIN_VERSION_base(x,y,z) 1
+#endif
+
 import Aws.Core
 import Aws.Kinesis.Core
 import Aws.Kinesis.Types
 
+#if ! MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
+import Control.DeepSeq
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import Data.Typeable
+
+import GHC.Generics
 
 getRecordsAction :: KinesisAction
 getRecordsAction = KinesisGetRecords
@@ -78,7 +107,9 @@ data GetRecords = GetRecords
     -- ^ The position in the shard from which you want to start sequentially
     -- reading data records.
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData GetRecords
 
 instance ToJSON GetRecords where
     toJSON GetRecords{..} = object
@@ -95,7 +126,9 @@ data GetRecordsResponse = GetRecordsResponse
     , getRecordsResRecords :: ![Record]
     -- ^ List of Records
     }
-    deriving (Show, Read, Eq, Ord, Typeable)
+    deriving (Show, Read, Eq, Ord, Typeable, Generic)
+
+instance NFData GetRecordsResponse
 
 instance FromJSON GetRecordsResponse where
     parseJSON = withObject "GetRecordsResponse" $ \o -> GetRecordsResponse
@@ -104,7 +137,11 @@ instance FromJSON GetRecordsResponse where
 
 instance ResponseConsumer r GetRecordsResponse where
     type ResponseMetadata GetRecordsResponse = KinesisMetadata
+#if MIN_VERSION_aws(0,15,0)
+    responseConsumer _ _ = kinesisResponseConsumer
+#else
     responseConsumer _ = kinesisResponseConsumer
+#endif
 
 instance SignQuery GetRecords where
     type ServiceConfiguration GetRecords = KinesisConfiguration
@@ -148,6 +185,8 @@ data GetRecordsExceptions
     | GetRecordsResourceNotFoundException
     -- ^ /Code 400/
 
-    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable)
+    deriving (Show, Read, Eq, Ord, Enum, Bounded, Typeable, Generic)
+
+instance NFData GetRecordsExceptions
 
 
