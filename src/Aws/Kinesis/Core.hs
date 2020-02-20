@@ -99,7 +99,7 @@ import qualified Network.HTTP.Conduit as HTTP
 import qualified Test.QuickCheck              as Q
 
 import qualified Text.Parser.Char             as P
-import           Text.Parser.Combinators      ((<?>))
+import qualified Text.Parser.Combinators      as TPC
 
 -- -------------------------------------------------------------------------- --
 -- Orphans
@@ -161,7 +161,7 @@ parseKinesisAction =
     <|> KinesisPutRecord <$ P.text "PutRecord"
     <|> KinesisPutRecords <$ P.text "PutRecords"
     <|> KinesisSplitShard <$ P.text "SplitShard"
-    <?> "KinesisAction"
+    TPC.<?> "KinesisAction"
 
 instance AwsType KinesisAction where
     toText = kinesisActionToText
@@ -566,4 +566,3 @@ data KinesisCommonParameters = KinesisCommonParameters
     deriving (Show, Eq, Read, Ord, Typeable, Generic)
 
 instance NFData KinesisCommonParameters
-
