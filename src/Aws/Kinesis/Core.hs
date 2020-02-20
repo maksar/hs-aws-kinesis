@@ -75,7 +75,7 @@ import Control.Exception
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Resource (throwM)
 
-import Data.Aeson
+import Data.Aeson hiding ((<?>))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Char8 as B8
@@ -566,4 +566,3 @@ data KinesisCommonParameters = KinesisCommonParameters
     deriving (Show, Eq, Read, Ord, Typeable, Generic)
 
 instance NFData KinesisCommonParameters
-
