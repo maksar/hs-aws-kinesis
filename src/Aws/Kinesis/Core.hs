@@ -75,7 +75,7 @@ import Control.Exception
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Resource (throwM)
 
-import Data.Aeson hiding ((<?>))
+import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Char8 as B8
@@ -99,7 +99,7 @@ import qualified Network.HTTP.Conduit as HTTP
 import qualified Test.QuickCheck              as Q
 
 import qualified Text.Parser.Char             as P
-import           Text.Parser.Combinators      ((<?>))
+import qualified Text.Parser.Combinators      as TPC
 
 -- -------------------------------------------------------------------------- --
 -- Orphans
@@ -161,7 +161,7 @@ parseKinesisAction =
     <|> KinesisPutRecord <$ P.text "PutRecord"
     <|> KinesisPutRecords <$ P.text "PutRecords"
     <|> KinesisSplitShard <$ P.text "SplitShard"
-    <?> "KinesisAction"
+    TPC.<?> "KinesisAction"
 
 instance AwsType KinesisAction where
     toText = kinesisActionToText
