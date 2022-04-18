@@ -71,6 +71,7 @@ import Aws.General
 import Control.Applicative
 #endif
 import Control.DeepSeq
+import qualified Control.Monad.Fail as MF
 
 import Data.Aeson
 import qualified Data.ByteString as B
@@ -93,7 +94,7 @@ import Test.QuickCheck.Instances ()
 sshow :: (Show a, IsString b) => a -> b
 sshow = fromString . show
 
-tryM :: Monad m => Either T.Text a -> m a
+tryM :: MF.MonadFail m => Either T.Text a -> m a
 tryM = either (fail . T.unpack) return
 
 -- -------------------------------------------------------------------------- --
